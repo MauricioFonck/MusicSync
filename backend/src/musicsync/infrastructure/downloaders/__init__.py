@@ -5,6 +5,7 @@ from .errors import (
     UnknownTrackError,
 )
 from .resolver import SourceResolver
+from .spot_dl import SpotDlDownloaderAdapter
 from .yt_dlp import YtDlpDownloaderAdapter
 
 __all__ = [
@@ -12,6 +13,7 @@ __all__ = [
     "DownloaderToolError",
     "InvalidSourceUrlError",
     "SourceResolver",
+    "SpotDlDownloaderAdapter",
     "UnknownTrackError",
     "YtDlpDownloaderAdapter",
 ]
