@@ -1,0 +1,16 @@
+# Configuración
+
+Variables:
+
+```env
+APP_ENV=development
+DATABASE_URL=sqlite:///./data/musicsync.db
+DEFAULT_FORMAT=mp3
+DEFAULT_QUALITY=192
+DOWNLOAD_TEMP_DIR=./data/temp
+LOG_DIR=./data/logs
+```
+
+No almacenar secretos en `.env` dentro del repositorio.
+
+Debe existir `.env.example`.

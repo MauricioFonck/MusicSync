@@ -1,0 +1,43 @@
+# Índice documental
+
+Este archivo sirve como índice rápido de la especificación MusicSync.
+
+- `01-product/vision.md`
+- `01-product/scope.md`
+- `01-product/requirements.md`
+- `02-architecture/overview.md`
+- `02-architecture/decisions.md`
+- `02-architecture/repository-structure.md`
+- `03-domain/entities.md`
+- `03-domain/value-objects.md`
+- `03-domain/services.md`
+- `03-domain/events.md`
+- `03-domain/ports.md`
+- `04-backend/overview.md`
+- `04-backend/use-cases.md`
+- `04-backend/configuration.md`
+- `05-frontend/angular.md`
+- `05-frontend/features.md`
+- `05-frontend/state.md`
+- `06-infrastructure/download-engines.md`
+- `06-infrastructure/ffmpeg.md`
+- `06-infrastructure/usb.md`
+- `06-infrastructure/filesystem.md`
+- `07-database/schema.md`
+- `07-database/migrations.md`
+- `08-api/http.md`
+- `08-api/websocket.md`
+- `08-api/errors.md`
+- `09-security/security.md`
+- `10-testing/strategy.md`
+- `10-testing/test-matrix.md`
+- `11-devops/github-actions.md`
+- `11-devops/docker.md`
+- `11-devops/release.md`
+- `12-development/conventions.md`
+- `12-development/development-flow.md`
+- `13-roadmap/implementation-plan.md`
+- `13-roadmap/acceptance.md`
+- `14-claude/CLAUDE.md`
+- `14-claude/development-prompt.md`
+- `14-claude/checklist.md`
