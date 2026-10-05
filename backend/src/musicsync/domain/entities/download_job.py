@@ -44,6 +44,15 @@ class DownloadJob:
         self.status = DownloadStatus.DOWNLOADING
         self.started_at = self.started_at or datetime.now(UTC)
 
+    def resume(self) -> None:
+        if self.status not in {
+            DownloadStatus.PAUSED,
+            DownloadStatus.FAILED,
+            DownloadStatus.PARTIALLY_COMPLETED,
+        }:
+            raise ValueError(f"Cannot resume a job in {self.status} status")
+        self.status = DownloadStatus.DOWNLOADING
+
     def pause(self) -> None:
         if self.status not in {
             DownloadStatus.ANALYZING,
