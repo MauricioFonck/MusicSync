@@ -1,0 +1,26 @@
+from enum import StrEnum
+
+
+class DownloadStatus(StrEnum):
+    PENDING = "PENDING"
+    ANALYZING = "ANALYZING"
+    DOWNLOADING = "DOWNLOADING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    PARTIALLY_COMPLETED = "PARTIALLY_COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    PAUSED = "PAUSED"
+
+
+class DuplicateDecision(StrEnum):
+    NEW = "NEW"
+    DUPLICATE = "DUPLICATE"
+    POSSIBLE_DUPLICATE = "POSSIBLE_DUPLICATE"
+
+
+class Source(StrEnum):
+    YOUTUBE = "YOUTUBE"
+    YOUTUBE_MUSIC = "YOUTUBE_MUSIC"
+    SPOTIFY = "SPOTIFY"
+    OTHER = "OTHER"
