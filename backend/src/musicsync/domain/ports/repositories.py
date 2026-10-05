@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from musicsync.domain.entities import DownloadJob, Track
+from musicsync.domain.entities import DownloadJob, MediaFile, Track
 from musicsync.domain.services import ExistingTrack
 from musicsync.domain.value_objects import Checksum, JobId, Source, SourceId
 
@@ -17,6 +17,8 @@ class TrackRepository(Protocol):
 
 class MediaFileRepository(Protocol):
     def find_by_checksum(self, checksum: Checksum) -> bool: ...
+
+    def save(self, media_file: MediaFile) -> None: ...
 
 
 class DownloadJobRepository(Protocol):
