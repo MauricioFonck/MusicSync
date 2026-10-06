@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -13,18 +16,22 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          version: "0.6.5"
+          version: "0.11.31"
           enable-cache: true
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: uv sync --dev
+      - run: uv sync --frozen --dev
       - run: uv run ruff check .
       - run: uv run mypy src
       - run: uv run pytest --cov=src/musicsync --cov-report=term-missing
+      - name: Audit dependencies
+        run: |
+          uv export --frozen --dev --no-hashes --no-emit-project > requirements-audit.txt
+          uvx pip-audit --strict --disable-pip --no-deps -r requirements-audit.txt
 
   frontend:
     runs-on: ubuntu-latest
@@ -32,13 +39,14 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=low
       - run: npm run lint
-      - run: CHROME_BIN=/usr/bin/chromium npm test -- --watch=false --no-progress
+      - run: npm test -- --watch=false
       - run: npm run build
