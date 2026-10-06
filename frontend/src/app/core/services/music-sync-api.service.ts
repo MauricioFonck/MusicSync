@@ -57,6 +57,25 @@ export class MusicSyncApiService {
     });
   }
 
+  job(id: string): Observable<DownloadJob> { return this.http.get<DownloadJob>(`${this.baseUrl}/downloads/${id}`); }
+  cancel(id: string): Observable<DownloadJob> { return this.http.post<DownloadJob>(`${this.baseUrl}/downloads/${id}/cancel`, {}); }
+  resume(id: string): Observable<DownloadJob> { return this.http.post<DownloadJob>(`${this.baseUrl}/downloads/${id}/resume`, {}); }
+
+  /** Live job snapshots until the job reaches a terminal state. */
+  watch(id: string): Observable<DownloadJob> {
+    return new Observable<DownloadJob>(subscriber => {
+      const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+      const socket = new WebSocket(`${scheme}://${location.host}/ws/downloads/${encodeURIComponent(id)}`);
+      socket.onmessage = message => {
+        const event = JSON.parse(message.data);
+        if (event.job) subscriber.next(event.job as DownloadJob);
+      };
+      socket.onerror = () => subscriber.error(new Error('Progress connection failed'));
+      socket.onclose = () => subscriber.complete();
+      return () => socket.close();
+    });
+  }
+
   history(): Observable<DownloadJob[]> { return this.http.get<DownloadJob[]>(`${this.baseUrl}/downloads/history`); }
   devices(): Observable<StorageDevice[]> { return this.http.get<StorageDevice[]>(`${this.baseUrl}/storage/devices`); }
 }
