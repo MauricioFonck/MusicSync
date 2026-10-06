@@ -41,6 +41,10 @@ El repo incluye `.mcp.json` en la raíz: Claude Code lo detecta al abrir el proy
 
 Ejemplo: «Descarga estas 10 canciones a la USB: …». Úsalo solo con contenido que tengas derecho a descargar.
 
+### Políticas para Claude
+
+Las reglas viven en [`MUSICSYNC_POLICY.md`](MUSICSYNC_POLICY.md). El servidor MCP las entrega a Claude de cuatro formas: como `instructions` al conectarse, como resource `musicsync://policy`, con la herramienta `get_policy` y con el prompt `sync_songs` (flujo guiado). El archivo se relee en cada consulta: edítalo y aplica sin reiniciar. Son reglas de texto (Claude las sigue, pero no son una barrera); lo único que el servidor hace cumplir es el máximo de canciones por lote (`MUSICSYNC_MAX_BATCH`, 25 por defecto). Otra ruta de política: variable `MUSICSYNC_POLICY`.
+
 ## Requisitos de ejecución
 
 `ffmpeg`/`ffprobe`, `yt-dlp` y (para Spotify) `spotdl` deben estar en el `PATH`, o configurarse en `.env` (ver `.env.example`).

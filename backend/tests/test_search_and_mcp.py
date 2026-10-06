@@ -124,3 +124,73 @@ def test_mcp_reports_unknown_tool_as_error() -> None:
         {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "nope"}}
     )
     assert reply is not None and reply["result"]["isError"] is True
+
+
+def test_mcp_serves_owner_policy_as_instructions_resource_and_tool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    policy = tmp_path / "policy.md"
+    policy.write_text("# Regla\nSolo audio oficial.", encoding="utf-8")
+    monkeypatch.setattr(mcp_server, "POLICY_PATH", policy)
+
+    init = mcp_server.handle(
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "x"}}
+    )
+    assert init is not None and "Solo audio oficial." in init["result"]["instructions"]
+    assert {"resources", "prompts"} <= set(init["result"]["capabilities"])
+
+    read = mcp_server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "resources/read",
+            "params": {"uri": "musicsync://policy"},
+        }
+    )
+    assert read is not None and "Solo audio oficial." in read["result"]["contents"][0]["text"]
+
+    policy.write_text("cambiada", encoding="utf-8")  # edits apply without restarting the server
+    tool = mcp_server.handle(
+        {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "get_policy"}}
+    )
+    assert tool is not None and "cambiada" in tool["result"]["content"][0]["text"]
+
+
+def test_mcp_prompt_and_missing_policy_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mcp_server, "POLICY_PATH", tmp_path / "missing.md")
+    assert mcp_server.read_policy() == mcp_server.DEFAULT_POLICY
+
+    listed = mcp_server.handle({"jsonrpc": "2.0", "id": 1, "method": "prompts/list"})
+    assert listed is not None and listed["result"]["prompts"][0]["name"] == "sync_songs"
+    got = mcp_server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "prompts/get",
+            "params": {"name": "sync_songs", "arguments": {"songs": "A - B"}},
+        }
+    )
+    assert got is not None and "A - B" in got["result"]["messages"][0]["content"]["text"]
+    missing = mcp_server.handle(
+        {"jsonrpc": "2.0", "id": 3, "method": "prompts/get", "params": {"name": "sync_songs"}}
+    )
+    assert missing is not None and "error" in missing
+
+
+def test_queue_songs_enforces_batch_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mcp_server, "MAX_BATCH", 2)
+    monkeypatch.setattr(mcp_server, "call_api", lambda *a, **k: pytest.fail("must not call API"))
+
+    reply = mcp_server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "queue_songs", "arguments": {"queries": ["a", "b", "c"]}},
+        }
+    )
+
+    assert reply is not None and reply["result"]["isError"] is True
+    assert "limits a batch to 2" in reply["result"]["content"][0]["text"]

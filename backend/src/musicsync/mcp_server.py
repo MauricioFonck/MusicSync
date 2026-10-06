@@ -13,10 +13,33 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 API = os.environ.get("MUSICSYNC_API", "http://127.0.0.1:8000").rstrip("/") + "/api/v1"
 PROTOCOL_VERSION = "2025-06-18"
+# The creator edits this file; it is re-read on every request, so no restart is needed.
+POLICY_PATH = Path(
+    os.environ.get("MUSICSYNC_POLICY")
+    or Path(__file__).resolve().parents[3] / "MUSICSYNC_POLICY.md"
+)
+DEFAULT_POLICY = (
+    "Use MusicSync only for content the user may download. Call list_devices first and have "
+    "the user confirm search results before queueing songs."
+)
+POLICY_URI = "musicsync://policy"
+MAX_BATCH = int(os.environ.get("MUSICSYNC_MAX_BATCH", "25"))
+
+
+def read_policy() -> str:
+    try:
+        return POLICY_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return DEFAULT_POLICY
+
+
+def get_policy() -> str:
+    return read_policy()
 
 
 def call_api(method: str, path: str, body: Any = None, timeout: int = 300) -> Any:
@@ -68,6 +91,10 @@ def start_sync(url: str, device_id: str | None = None, track_ids: list[str] | No
 
 def queue_songs(queries: list[str], source: str = "youtube", device_id: str | None = None) -> Any:
     """Search each 'Artist - Title' query, take the top hit and start its sync."""
+    if not queries:
+        raise ValueError("queries cannot be empty")
+    if len(queries) > MAX_BATCH:
+        raise ValueError(f"Policy limits a batch to {MAX_BATCH} songs; split the list and retry")
     device = _device(device_id)
     results: list[dict[str, Any]] = []
     for query in queries:
@@ -110,6 +137,11 @@ _SOURCE = {"type": "string", "enum": ["youtube", "spotify"], "default": "youtube
 _DEVICE = {"type": "string", "description": "Optional when exactly one device is connected."}
 
 TOOLS: dict[str, tuple[str, dict[str, Any], Callable[..., Any]]] = {
+    "get_policy": (
+        "Read the project owner's rules for using MusicSync. Call it before the first sync.",
+        _schema({}, []),
+        get_policy,
+    ),
     "search_music": (
         "Find song URLs from free text ('Artist - Title') on YouTube or Spotify.",
         _schema(
@@ -162,6 +194,32 @@ TOOLS: dict[str, tuple[str, dict[str, Any], Callable[..., Any]]] = {
 }
 
 
+PROMPTS: dict[str, dict[str, Any]] = {
+    "sync_songs": {
+        "description": "Search the songs and sync them to the USB, following the owner's policy.",
+        "arguments": [
+            {"name": "songs", "description": "One 'Artist - Title' per line", "required": True},
+            {"name": "source", "description": "youtube (default) or spotify", "required": False},
+        ],
+    }
+}
+
+
+def _prompt_text(name: str, arguments: dict[str, str]) -> str:
+    if name != "sync_songs":
+        raise ValueError(f"Unknown prompt: {name}")
+    songs = arguments.get("songs", "").strip()
+    if not songs:
+        raise ValueError("The 'songs' argument is required")
+    source = arguments.get("source") or "youtube"
+    return (
+        "Sigue la política de MusicSync (resource musicsync://policy / herramienta get_policy).\n"
+        f"Fuente: {source}. Sincroniza estas canciones a mi USB:\n\n{songs}\n\n"
+        "Primero list_devices, luego search_music para cada una; muéstrame los resultados y "
+        "espera mi confirmación antes de queue_songs. Después vigila con job_status y reporta."
+    )
+
+
 def handle(message: dict[str, Any]) -> dict[str, Any] | None:
     method, request_id = message.get("method"), message.get("id")
     if request_id is None:
@@ -171,8 +229,9 @@ def handle(message: dict[str, Any]) -> dict[str, Any] | None:
             requested = (message.get("params") or {}).get("protocolVersion")
             result: dict[str, Any] = {
                 "protocolVersion": requested or PROTOCOL_VERSION,
-                "capabilities": {"tools": {}},
+                "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
                 "serverInfo": {"name": "musicsync", "version": "0.1.0"},
+                "instructions": read_policy(),
             }
         elif method == "ping":
             result = {}
@@ -185,6 +244,30 @@ def handle(message: dict[str, Any]) -> dict[str, Any] | None:
             }
         elif method == "tools/call":
             result = _call_tool(message.get("params") or {})
+        elif method == "resources/list":
+            result = {
+                "resources": [
+                    {
+                        "uri": POLICY_URI,
+                        "name": "Políticas de uso de MusicSync",
+                        "description": "Reglas del creador que Claude debe seguir.",
+                        "mimeType": "text/markdown",
+                    }
+                ]
+            }
+        elif method == "resources/read":
+            uri = (message.get("params") or {}).get("uri")
+            if uri != POLICY_URI:
+                raise ValueError(f"Unknown resource: {uri}")
+            result = {
+                "contents": [{"uri": uri, "mimeType": "text/markdown", "text": read_policy()}]
+            }
+        elif method == "prompts/list":
+            result = {"prompts": [{"name": n, **meta} for n, meta in PROMPTS.items()]}
+        elif method == "prompts/get":
+            params = message.get("params") or {}
+            text = _prompt_text(str(params.get("name")), params.get("arguments") or {})
+            result = {"messages": [{"role": "user", "content": {"type": "text", "text": text}}]}
         else:
             return {
                 "jsonrpc": "2.0",
