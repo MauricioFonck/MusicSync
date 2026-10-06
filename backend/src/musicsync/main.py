@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -29,6 +31,7 @@ from musicsync.infrastructure.downloaders import (
     ResolvingDownloader,
     SourceResolver,
     SpotDlDownloaderAdapter,
+    SpotifyWebSearch,
     YtDlpDownloaderAdapter,
 )
 from musicsync.infrastructure.filesystem import LocalFilesystemService
@@ -90,8 +93,16 @@ def build_service(settings: Settings) -> ApiService:
         if job.status in INTERRUPTED:  # the process died mid-job: make it resumable
             job.pause()
             save(job)
+    # Import yt-dlp off the request path so the first search does not pay for it.
+    threading.Thread(target=importlib.import_module, args=("yt_dlp",), daemon=True).start()
+    secret = settings.spotify_client_secret.get_secret_value()
     searcher = MusicSearch(
-        yt_dlp_binary=settings.yt_dlp_binary, spotdl_binary=settings.spotdl_binary
+        spotdl_binary=settings.spotdl_binary,
+        spotify_api=(
+            SpotifyWebSearch(settings.spotify_client_id, secret)
+            if settings.spotify_client_id and secret
+            else None
+        ),
     )
     service = ApiService(
         downloader, devices, runner=run, on_change=save, jobs=jobs, searcher=searcher

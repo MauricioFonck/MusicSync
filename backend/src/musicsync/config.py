@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from musicsync.domain.value_objects import MediaFormat
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Root .env (next to .env.example) first, then backend/.env overrides it.
+    model_config = SettingsConfigDict(env_file=("../.env", ".env"), extra="ignore")
 
     app_env: str = "development"
     database_url: str = "sqlite:///./data/musicsync.db"
@@ -22,3 +23,6 @@ class Settings(BaseSettings):
     ffprobe_binary: str = "ffprobe"
     yt_dlp_binary: str = "yt-dlp"
     spotdl_binary: str = "spotdl"
+    # Optional: free app keys from developer.spotify.com make Spotify search fast with many hits.
+    spotify_client_id: str = ""
+    spotify_client_secret: SecretStr = SecretStr("")

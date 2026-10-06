@@ -20,6 +20,8 @@ describe('SearchComponent', () => {
     http.expectOne('/api/v1/storage/devices').flush([
       { id: 'dev-1', volume_label: 'USB', mount_point: 'E:\\', filesystem: 'FAT32', total_space: 1, free_space: 1, is_available: true },
     ]);
+    http.expectOne('/api/v1/search/capabilities').flush({ spotify_api: true });
+    expect(component.spotifyApi()).toBe(true);
     return { component, http };
   }
 

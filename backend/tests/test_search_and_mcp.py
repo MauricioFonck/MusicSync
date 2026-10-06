@@ -13,7 +13,8 @@ from musicsync.api import ApiService
 from musicsync.domain.entities import Track
 from musicsync.domain.ports import SearchHit, SourceAnalysis
 from musicsync.domain.value_objects import Source, SourceId, TrackId
-from musicsync.infrastructure.downloaders import MusicSearch
+from musicsync.infrastructure.downloaders import DownloaderToolError, MusicSearch, SpotifyWebSearch
+from musicsync.infrastructure.downloaders.spotify_api import TOKEN_URL
 from musicsync.main import create_app
 
 URL = "https://example.com/list"
@@ -61,26 +62,102 @@ def test_search_endpoint_returns_hits_and_validates_source() -> None:
     assert api.get("/api/v1/search", params={"q": "x", "source": "bad"}).status_code == 422
 
 
-def test_music_search_parses_youtube_and_spotify_cli_output() -> None:
+def test_music_search_parses_youtube_and_spotdl_fallback() -> None:
+    def youtube(query: str, limit: int) -> list[dict[str, Any]]:
+        assert (query, limit) == ("daft punk", 2)
+        return [{"id": "abc", "title": "One More Time", "channel": "Daft Punk"}, {"id": "x"}]
+
     def runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
-        if command[0] == "yt-dlp":
-            assert command[-1] == "ytsearch2:daft punk"
-            entries = [{"id": "abc", "title": "One More Time", "channel": "Daft Punk"}]
-            return subprocess.CompletedProcess(command, 0, json.dumps({"entries": entries}), "")
         song = {"name": "Song", "artist": "Artist", "url": "https://open.spotify.com/track/1"}
         Path(command[command.index("--save-file") + 1]).write_text(json.dumps([song]))
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    search = MusicSearch(runner=runner)
+    search = MusicSearch(runner=runner, youtube=youtube)
 
-    youtube = search.search("daft punk", "youtube", 2)
-    assert youtube[0].url == "https://www.youtube.com/watch?v=abc"
-    assert youtube[0].thumbnail_url == "https://i.ytimg.com/vi/abc/mqdefault.jpg"
+    hits = search.search("daft punk", "youtube", 2)
+    assert [hit.url for hit in hits] == ["https://www.youtube.com/watch?v=abc"]
+    assert hits[0].thumbnail_url == "https://i.ytimg.com/vi/abc/mqdefault.jpg"
     assert search.search("Artist - Song", "spotify", 5)[0].source == "spotify"
+    assert search.spotify_api_enabled is False
     with pytest.raises(ValueError):
         search.search("x", "other", 1)
     with pytest.raises(ValueError):
         search.search("--output /tmp/evil", "spotify", 1)
+
+
+def test_music_search_caches_results_until_ttl_expires() -> None:
+    calls: list[str] = []
+    now = [0.0]
+
+    def youtube(query: str, limit: int) -> list[dict[str, Any]]:
+        calls.append(query)
+        return [{"id": "abc", "title": "T"}]
+
+    search = MusicSearch(youtube=youtube, clock=lambda: now[0])
+    search.search("Daft Punk", "youtube", 5)
+    search.search("daft punk ", "youtube", 5)  # same query, different case/spacing
+    assert len(calls) == 1
+    now[0] = 601
+    search.search("daft punk", "youtube", 5)
+    assert len(calls) == 2
+
+
+def spotify_track(index: int) -> dict[str, Any]:
+    return {
+        "name": f"Song {index}",
+        "artists": [{"name": "Daft Punk"}, {"name": "Guest"}],
+        "album": {"name": "Discovery", "images": [{"url": "big"}, {"url": "medium"}]},
+        "duration_ms": 320000,
+        "external_urls": {"spotify": f"https://open.spotify.com/track/{index}"},
+    }
+
+
+def test_spotify_web_search_returns_many_hits_and_refreshes_token() -> None:
+    requests: list[str] = []
+    tokens = iter(["t1", "t2"])
+    search_statuses = iter([200, 401, 200])
+
+    def http(request: Any, timeout: float) -> tuple[int, Any]:
+        requests.append(request.full_url)
+        if request.full_url == TOKEN_URL:
+            assert request.get_header("Authorization").startswith("Basic ")
+            return 200, {"access_token": next(tokens), "expires_in": 3600}
+        status = next(search_statuses)
+        if status == 401:
+            return 401, {"error": {"message": "expired"}}
+        return 200, {"tracks": {"items": [spotify_track(i) for i in range(15)]}}
+
+    api = SpotifyWebSearch("id", "secret", http=http)
+    hits = api.search("daft punk", 15)
+
+    assert len(hits) == 15
+    assert hits[0].artist == "Daft Punk, Guest"
+    assert (hits[0].album, hits[0].thumbnail_url, hits[0].duration_seconds) == (
+        "Discovery",
+        "medium",
+        320,
+    )
+    assert requests.count(TOKEN_URL) == 1  # token reused between searches
+    api.search("again", 5)  # 401 -> refreshes the token once and retries
+    assert requests.count(TOKEN_URL) == 2
+
+
+def test_spotify_web_search_reports_bad_credentials() -> None:
+    api = SpotifyWebSearch("id", "bad", http=lambda request, timeout: (400, {}))
+    with pytest.raises(DownloaderToolError, match="client credentials"):
+        api.search("x", 5)
+    with pytest.raises(ValueError):
+        SpotifyWebSearch("", "")
+
+
+def test_spotify_api_is_used_when_configured() -> None:
+    class FakeApi:
+        def search(self, query: str, limit: int) -> list[SearchHit]:
+            return [SearchHit("T", "A", "https://open.spotify.com/track/1", "spotify")] * limit
+
+    search = MusicSearch(spotify_api=FakeApi())  # type: ignore[arg-type]
+    assert len(search.search("q", "spotify", 12)) == 12
+    assert search.spotify_api_enabled is True
 
 
 def test_mcp_lists_tools_and_forwards_calls(monkeypatch: pytest.MonkeyPatch) -> None:

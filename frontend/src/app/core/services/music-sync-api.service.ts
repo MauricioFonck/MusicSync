@@ -86,9 +86,13 @@ export class MusicSyncApiService {
     });
   }
 
-  search(q: string, source: 'youtube' | 'spotify', limit = 15): Observable<SearchResult[]> {
+  search(q: string, source: 'youtube' | 'spotify', limit = 20): Observable<SearchResult[]> {
     const params = new HttpParams().set('q', q).set('source', source).set('limit', limit);
     return this.http.get<SearchResult[]>(`${this.baseUrl}/search`, { params });
+  }
+
+  searchCapabilities(): Observable<{ spotify_api: boolean }> {
+    return this.http.get<{ spotify_api: boolean }>(`${this.baseUrl}/search/capabilities`);
   }
 
   history(): Observable<DownloadJob[]> { return this.http.get<DownloadJob[]>(`${this.baseUrl}/downloads/history`); }

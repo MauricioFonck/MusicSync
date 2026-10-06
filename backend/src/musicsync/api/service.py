@@ -107,6 +107,9 @@ class ApiService:
             for hit in self._searcher.search(query, source, limit)
         ]
 
+    def search_capabilities(self) -> dict[str, bool]:
+        return {"spotify_api": bool(getattr(self._searcher, "spotify_api_enabled", False))}
+
     def create_job(
         self, url: str, device_id: str, track_ids: list[str] | None
     ) -> DownloadJobResponse:

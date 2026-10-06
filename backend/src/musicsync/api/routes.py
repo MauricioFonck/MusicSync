@@ -34,6 +34,10 @@ def create_router(service: ApiService | Callable[[], ApiService]) -> APIRouter:
                 detail=ErrorResponse(code="INVALID_URL", message=str(exc)).model_dump(),
             ) from exc
 
+    @router.get("/search/capabilities")
+    def search_capabilities() -> dict[str, bool]:
+        return get().search_capabilities()
+
     @router.get("/search", response_model=list[SearchResultResponse])
     def search(q: str, source: str = "youtube", limit: int = 5) -> list[SearchResultResponse]:
         try:

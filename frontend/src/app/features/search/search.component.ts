@@ -39,8 +39,11 @@ const ACTIVE = ['PENDING', 'ANALYZING', 'DOWNLOADING', 'PROCESSING'];
           {{ loading() ? 'Searching…' : 'Search' }}
         </button>
       </div>
-      @if (source === 'spotify') {
-        <p class="muted hint">Spotify returns the best match only and can take about 30 seconds.</p>
+      @if (source === 'spotify' && !spotifyApi()) {
+        <p class="muted hint">
+          Without Spotify API keys this returns only the best match and takes about 30 seconds.
+          Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to .env for fast results.
+        </p>
       }
       <div class="device-row">
         <label for="device">Send to</label>
@@ -131,6 +134,7 @@ export class SearchComponent {
   readonly error = signal('');
   readonly lastQuery = signal('');
   readonly rows = signal<Record<string, RowState>>({});
+  readonly spotifyApi = signal(false);
 
   constructor() {
     this.api.devices().subscribe({
@@ -139,6 +143,10 @@ export class SearchComponent {
         this.device ||= devices[0]?.id ?? '';
       },
       error: () => this.devices.set([]),
+    });
+    this.api.searchCapabilities().subscribe({
+      next: capabilities => this.spotifyApi.set(capabilities.spotify_api),
+      error: () => this.spotifyApi.set(false),
     });
   }
 
