@@ -68,7 +68,9 @@ def test_missing_job_uses_documented_error_shape() -> None:
 
 def test_websocket_returns_progress_event_for_known_job() -> None:
     api = client()
-    analysis = api.post("/api/v1/downloads/analyze", json={"url": "https://example.com/list"}).json()
+    analysis = api.post(
+        "/api/v1/downloads/analyze", json={"url": "https://example.com/list"}
+    ).json()
     created = api.post(
         "/api/v1/downloads",
         json={
@@ -87,7 +89,9 @@ def test_websocket_returns_progress_event_for_known_job() -> None:
 
 def test_websocket_streams_until_terminal_event() -> None:
     api = client()
-    analysis = api.post("/api/v1/downloads/analyze", json={"url": "https://example.com/list"}).json()
+    analysis = api.post(
+        "/api/v1/downloads/analyze", json={"url": "https://example.com/list"}
+    ).json()
     created = api.post(
         "/api/v1/downloads",
         json={

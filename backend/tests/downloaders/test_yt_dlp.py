@@ -36,9 +36,7 @@ def test_analyze_normalizes_single_track_metadata() -> None:
             "",
         )
 
-    analysis = YtDlpDownloaderAdapter(runner=runner).analyze(
-        "https://www.youtube.com/watch?v=abc"
-    )
+    analysis = YtDlpDownloaderAdapter(runner=runner).analyze("https://www.youtube.com/watch?v=abc")
 
     assert len(analysis.tracks) == 1
     track = analysis.tracks[0]

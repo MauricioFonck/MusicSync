@@ -26,9 +26,7 @@ class SpotDlDownloaderAdapter(YtDlpDownloaderAdapter):
         if parsed.scheme not in {"http", "https"} or parsed.hostname not in SPOTIFY_HOSTS:
             raise InvalidSourceUrlError("spotDL requires an absolute Spotify URL")
         songs = self.save(url)
-        tracks = self._tracks_from_payload(
-            {"entries": [self._entry(song) for song in songs]}, url
-        )
+        tracks = self._tracks_from_payload({"entries": [self._entry(song) for song in songs]}, url)
         if not tracks:
             raise DownloaderToolError("spotDL returned no tracks")
         self._tracks.update({track.id: track for track in tracks})
