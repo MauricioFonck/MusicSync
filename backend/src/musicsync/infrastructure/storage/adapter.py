@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import string
+import sys
 from collections.abc import Callable, Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +26,12 @@ class LocalStorageDeviceAdapter(StorageDevicePort):
         scan_roots: Iterable[Path] | None = None,
         metadata_reader: MetadataReader | None = None,
     ) -> None:
+        if mount_points is None and scan_roots is None and os.name == "nt":
+            # Drive roots are the mount points on Windows; never offer the system drive.
+            system = os.environ.get("SYSTEMDRIVE", "C:").upper()
+            mount_points = (
+                Path(f"{letter}:\\") for letter in string.ascii_uppercase if f"{letter}:" != system
+            )
         self._mount_points = (
             tuple(path for path in mount_points) if mount_points is not None else None
         )
@@ -98,13 +105,23 @@ class LocalStorageDeviceAdapter(StorageDevicePort):
         user = os.environ.get("USER", "")
         roots = [Path("/media"), Path("/mnt")]
         if user:
-            roots.append(Path("/run/media") / user)
+            roots.extend([Path("/media") / user, Path("/run/media") / user])
         return tuple(roots)
 
     @staticmethod
     def _default_metadata(path: Path) -> MountMetadata:
-        filesystem = "NTFS" if os.name == "nt" else "UNKNOWN"
-        return filesystem, path.name
+        if sys.platform != "win32":
+            return "UNKNOWN", path.name
+        import ctypes
+
+        label = ctypes.create_unicode_buffer(261)
+        filesystem = ctypes.create_unicode_buffer(261)
+        ok = ctypes.windll.kernel32.GetVolumeInformationW(
+            str(path), label, 261, None, None, None, filesystem, 261
+        )
+        if not ok:
+            return "UNKNOWN", path.name
+        return filesystem.value or "UNKNOWN", label.value or str(path).rstrip("\\")
 
 
 class WindowsStorageDeviceAdapter(LocalStorageDeviceAdapter):
