@@ -36,6 +36,9 @@ class SpotDlDownloaderAdapter(YtDlpDownloaderAdapter):
 
     def save(self, target: str) -> list[dict[str, Any]]:
         """Resolve a Spotify URL or free-text query to spotDL song records."""
+        if target.lstrip().startswith("-"):
+            # A leading dash would be parsed by spotDL as an option, not as the query.
+            raise ValueError("Search query cannot start with '-'")
         with tempfile.TemporaryDirectory(prefix="musicsync-spotdl-") as directory:
             save_file = Path(directory) / "analysis.spotdl"
             result = self._run([self._binary, "save", target, "--save-file", str(save_file)])

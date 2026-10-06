@@ -78,6 +78,8 @@ def test_music_search_parses_youtube_and_spotify_cli_output() -> None:
     assert search.search("Artist - Song", "spotify", 5)[0].source == "spotify"
     with pytest.raises(ValueError):
         search.search("x", "other", 1)
+    with pytest.raises(ValueError):
+        search.search("--output /tmp/evil", "spotify", 1)
 
 
 def test_mcp_lists_tools_and_forwards_calls(monkeypatch: pytest.MonkeyPatch) -> None:
