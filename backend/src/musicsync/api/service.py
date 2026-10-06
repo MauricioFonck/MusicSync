@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 
 from musicsync.domain.entities import DownloadItem, DownloadJob, StorageDevice
 from musicsync.domain.ports import DownloaderPort, SourceAnalysis
-from musicsync.domain.value_objects import JobId, StorageDeviceId
+from musicsync.domain.value_objects import DownloadStatus, JobId, StorageDeviceId
 
 from .schemas import (
     AnalysisResponse,
@@ -14,15 +15,49 @@ from .schemas import (
     TrackResponse,
 )
 
+DeviceProvider = Callable[[], Sequence[StorageDevice]]
+JobRunner = Callable[[DownloadJob], None]
+
+RUNNABLE = {
+    DownloadStatus.PENDING,
+    DownloadStatus.PAUSED,
+    DownloadStatus.FAILED,
+    DownloadStatus.PARTIALLY_COMPLETED,
+}
+
 
 class ApiService:
-    """Application-facing in-memory facade, replaceable by persistent use cases."""
+    """Application-facing facade: live jobs in memory, executed and persisted via hooks."""
 
-    def __init__(self, downloader: DownloaderPort, devices: Sequence[StorageDevice] = ()) -> None:
+    def __init__(
+        self,
+        downloader: DownloaderPort,
+        devices: Sequence[StorageDevice] | DeviceProvider = (),
+        *,
+        runner: JobRunner | None = None,
+        on_change: Callable[[DownloadJob], None] | None = None,
+        jobs: Iterable[DownloadJob] = (),
+    ) -> None:
         self.downloader = downloader
-        self.devices = tuple(devices)
+        self._devices = devices if callable(devices) else (lambda: tuple(devices))
+        self._runner = runner
+        self._on_change = on_change or (lambda job: None)
+        # ponytail: one worker runs jobs sequentially; raise max_workers if parallel syncs matter.
+        self._executor = ThreadPoolExecutor(max_workers=1) if runner else None
         self.analyses: dict[str, SourceAnalysis] = {}
-        self.jobs: dict[str, DownloadJob] = {}
+        self.jobs: dict[str, DownloadJob] = {str(job.id): job for job in jobs}
+
+    @property
+    def devices(self) -> tuple[StorageDevice, ...]:
+        return tuple(self._devices())
+
+    def submit(self, job: DownloadJob) -> None:
+        if self._executor is not None and self._runner is not None:
+            self._executor.submit(self._runner, job)
+
+    def shutdown(self) -> None:
+        if self._executor is not None:
+            self._executor.shutdown(wait=False, cancel_futures=True)
 
     def analyze(self, url: str) -> AnalysisResponse:
         analysis = self.downloader.analyze(url)
@@ -61,6 +96,8 @@ class ApiService:
             for index, track in enumerate(tracks)
         )
         self.jobs[str(job.id)] = job
+        self._on_change(job)
+        self.submit(job)
         return self.to_job_response(job)
 
     def get_job(self, job_id: str) -> DownloadJobResponse | None:
@@ -73,17 +110,24 @@ class ApiService:
             return None
         job.cancel()
         self.downloader.cancel(job_id)
+        self._on_change(job)
         return self.to_job_response(job)
 
     def resume_job(self, job_id: str) -> DownloadJobResponse | None:
         job = self.jobs.get(job_id)
         if job is None:
             return None
-        job.start()
+        if self._runner is None:
+            job.start()
+        elif job.status not in RUNNABLE:
+            raise ValueError(f"Cannot resume a job in {job.status} status")
+        else:
+            self.submit(job)
         return self.to_job_response(job)
 
     def history(self) -> list[DownloadJobResponse]:
-        return [self.to_job_response(job) for job in self.jobs.values()]
+        jobs = sorted(self.jobs.values(), key=lambda job: job.created_at, reverse=True)
+        return [self.to_job_response(job) for job in jobs]
 
     @staticmethod
     def to_job_response(job: DownloadJob) -> DownloadJobResponse:

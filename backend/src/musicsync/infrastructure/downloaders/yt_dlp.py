@@ -7,6 +7,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from uuid import NAMESPACE_URL, uuid5
 
 from musicsync.domain.entities import DownloadItem, Track
 from musicsync.domain.ports import DownloaderPort, SourceAnalysis
@@ -74,6 +75,8 @@ class YtDlpDownloaderAdapter(DownloaderPort):
             "--no-warnings",
             "--no-playlist",
             "--no-part",
+            "--format",
+            "bestaudio/best",
             "--output",
             str(output),
             track.original_url,
@@ -127,7 +130,8 @@ class YtDlpDownloaderAdapter(DownloaderPort):
             duration = entry.get("duration")
             tracks.append(
                 Track(
-                    id=TrackId.new(),
+                    # Stable per source item so re-analysis (resume, restart) matches job items.
+                    id=TrackId(uuid5(NAMESPACE_URL, f"{source}:{entry['id']}")),
                     source=source,
                     source_id=SourceId(str(entry["id"])),
                     title=str(entry["title"]),

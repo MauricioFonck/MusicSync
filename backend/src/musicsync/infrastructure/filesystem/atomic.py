@@ -23,4 +23,4 @@ class AtomicFileStore:
             raise DestinationExistsError(f"Destination already exists: {destination_path}")
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         os.replace(source_path, destination_path)
-        return MediaPath(str(destination_path.relative_to(self.destination.root)))
+        return MediaPath(destination_path.relative_to(self.destination.root).as_posix())

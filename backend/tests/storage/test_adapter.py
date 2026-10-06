@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from musicsync.infrastructure.storage import LocalStorageDeviceAdapter
@@ -15,7 +16,7 @@ def test_adapter_discovers_mount_metadata_and_stable_volume_identity(tmp_path: P
 
     assert len(devices) == 1
     device = devices[0]
-    assert device.id.value.startswith("posix:volume:")
+    assert device.id.value.startswith("windows:volume:" if os.name == "nt" else "posix:volume:")
     assert device.volume_label == "MUSIC_USB"
     assert device.filesystem == "exFAT"
     assert device.mount_point == str(mount.resolve())

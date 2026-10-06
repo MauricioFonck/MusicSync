@@ -39,6 +39,12 @@ class SqlAlchemyDownloadJobRepository:
             completed_at=model.completed_at,
         )
 
+    def list_all(self) -> list[DownloadJob]:
+        ids = self._session.scalars(
+            select(DownloadJobModel.id).order_by(DownloadJobModel.created_at)
+        ).all()
+        return [job for job_id in ids if (job := self.get(JobId(UUID(job_id)))) is not None]
+
     def save(self, job: DownloadJob) -> None:
         model = self._session.get(DownloadJobModel, str(job.id))
         if model is None:

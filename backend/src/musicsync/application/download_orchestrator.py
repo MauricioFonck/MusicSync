@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from musicsync.domain.entities import DownloadItem, DownloadJob
+from musicsync.domain.entities import DownloadItem, DownloadJob, Track
 from musicsync.domain.ports import DownloaderPort
 from musicsync.domain.value_objects import DownloadStatus, MediaPath
 
 from .reliability import RetryPolicy
 
 DestinationBuilder = Callable[[int], str]
+# Turns a raw download into the final file; must leave the item COMPLETED or raise.
+ItemFinalizer = Callable[[DownloadItem, Track, str], None]
 
 
 class DownloadOrchestrator:
@@ -23,6 +25,8 @@ class DownloadOrchestrator:
         job: DownloadJob,
         downloader: DownloaderPort,
         destination_for: DestinationBuilder,
+        finalize: ItemFinalizer | None = None,
+        tracks: Sequence[Track] | None = None,
     ) -> DownloadJob:
         if job.status is DownloadStatus.COMPLETED:
             return job
@@ -35,8 +39,9 @@ class DownloadOrchestrator:
             job.resume()
         else:
             job.start()
-        analysis = downloader.analyze(job.source_url)
-        tracks_by_id = {track.id: track for track in analysis.tracks}
+        if tracks is None:
+            tracks = downloader.analyze(job.source_url).tracks
+        tracks_by_id = {track.id: track for track in tracks}
         for index, item in enumerate(job.items):
             if job.status is DownloadStatus.CANCELLED:
                 break
@@ -48,6 +53,12 @@ class DownloadOrchestrator:
                 continue
             output = self._download_with_retries(item, downloader, destination_for(index))
             if output is None:
+                continue
+            if finalize is not None:
+                try:
+                    finalize(item, track, output)
+                except Exception as exc:  # processing errors are isolated to the item
+                    item.mark_failed(str(exc) or "Processing failed")
                 continue
             item.output_path = MediaPath(output)
             item.update_progress(100)

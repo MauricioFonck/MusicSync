@@ -65,6 +65,7 @@ class FfmpegMediaProcessor(MediaProcessorPort):
             str(source_path),
             "-vn",
             *self._codec_arguments(options),
+            *(arg for key, value in options.metadata for arg in ("-metadata", f"{key}={value}")),
             str(destination_path),
         ]
         result = self._run(command)
@@ -125,7 +126,10 @@ class FfmpegMediaProcessor(MediaProcessorPort):
                 check=False,
                 capture_output=True,
                 text=True,
+                timeout=1800,
             )
+        except subprocess.TimeoutExpired as exc:
+            raise MediaConversionError(f"Media tool timed out: {command[0]}") from exc
         except FileNotFoundError as exc:
             raise MediaToolNotFoundError(f"Media tool is not available: {command[0]}") from exc
         except OSError as exc:

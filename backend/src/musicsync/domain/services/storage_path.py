@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import PurePath
+from pathlib import PurePosixPath
 
 from musicsync.domain.entities import Track
 from musicsync.domain.services.filename import FilenameSanitizer
@@ -19,5 +19,5 @@ class StoragePathService:
         title = self._sanitizer.sanitize(track.title)
         prefix = f"{track.track_number:02d} - " if track.track_number is not None else ""
         filename = f"{prefix}{title}.{media_format.value}"
-        path = PurePath("MUSIC") / artist / album / filename
+        path = PurePosixPath("MUSIC") / artist / album / filename
         return MediaPath(str(path))

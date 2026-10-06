@@ -83,3 +83,24 @@ def test_websocket_returns_progress_event_for_known_job() -> None:
 
     assert event["event"] == "download.progress"
     assert event["job_id"] == created["id"]
+
+
+def test_websocket_streams_until_terminal_event() -> None:
+    api = client()
+    analysis = api.post("/api/v1/downloads/analyze", json={"url": "https://example.com/list"}).json()
+    created = api.post(
+        "/api/v1/downloads",
+        json={
+            "url": "https://example.com/list",
+            "destination_device_id": "usb-1",
+            "track_ids": [analysis["tracks"][0]["id"]],
+        },
+    ).json()
+    api.post(f"/api/v1/downloads/{created['id']}/cancel")
+
+    with api.websocket_connect(f"/ws/downloads/{created['id']}") as websocket:
+        progress = websocket.receive_json()
+        final = websocket.receive_json()
+
+    assert progress["status"] == "CANCELLED"
+    assert final == {"event": "download.failed", "job_id": created["id"], "status": "CANCELLED"}

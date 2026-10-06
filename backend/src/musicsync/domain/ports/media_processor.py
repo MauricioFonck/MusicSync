@@ -17,6 +17,7 @@ class MediaInspection:
 class ProcessingOptions:
     media_format: MediaFormat
     quality: Quality
+    metadata: tuple[tuple[str, str], ...] = ()
 
 
 class MediaProcessorPort(Protocol):

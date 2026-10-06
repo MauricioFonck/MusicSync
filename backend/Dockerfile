@@ -11,11 +11,11 @@ RUN apt-get update \
     && useradd --create-home --uid 10001 musicsync
 
 COPY pyproject.toml uv.lock ./
-RUN pip install --no-cache-dir uv && uv sync --frozen
+RUN pip install --no-cache-dir uv && uv sync --frozen --no-dev
 COPY src ./src
 
 RUN mkdir -p /app/data && chown -R musicsync:musicsync /app
 USER musicsync
 
 EXPOSE 8000
-CMD ["uv", "run", "uvicorn", "musicsync.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--no-sync", "uvicorn", "musicsync.main:app", "--host", "0.0.0.0", "--port", "8000"]

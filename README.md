@@ -31,8 +31,15 @@ Health check: `GET http://127.0.0.1:8000/api/v1/health`
 ```bash
 cd frontend
 npm install
-npm start
+npm start   # http://localhost:4200, /api y /ws se redirigen al backend (proxy.conf.json)
+npm test -- --watch=false
 ```
+
+## Requisitos de ejecución
+
+`ffmpeg`/`ffprobe`, `yt-dlp` y (para Spotify) `spotdl` deben estar en el `PATH`, o configurarse en `.env` (ver `.env.example`).
+
+Flujo: analizar URL → elegir pistas y USB → descarga a `<USB>/.musicsync-tmp` → FFmpeg (con etiquetas) → validación ffprobe → SHA-256 → movimiento atómico a `<USB>/MUSIC/Artista/Álbum/Título.mp3`. Las pistas ya presentes en la USB se omiten. Los jobs se guardan en SQLite; si el proceso se reinicia en medio de un job, este queda `PAUSED` y se puede reanudar desde Historial.
 
 ## Legalidad
 

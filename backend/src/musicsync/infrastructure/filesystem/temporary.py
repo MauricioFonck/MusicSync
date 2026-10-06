@@ -15,7 +15,9 @@ class TemporaryDirectoryManager:
         self.resolver = SafePathResolver(root)
 
     def create(self, job_id: JobId) -> MediaPath:
-        relative_directory = f"job-{job_id}-{uuid.uuid4().hex}"
+        # Short on purpose: Windows MAX_PATH is 260 and the device root may already be deep.
+        del job_id
+        relative_directory = f"job-{uuid.uuid4().hex[:12]}"
         directory = self.resolver.resolve(relative_directory)
         directory.mkdir(parents=False, exist_ok=False)
         return MediaPath(relative_directory)

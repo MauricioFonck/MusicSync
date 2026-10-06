@@ -36,7 +36,10 @@ def test_resolver_rejects_symlinked_components(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
     root.mkdir()
-    (root / "link").symlink_to(outside, target_is_directory=True)
+    try:
+        (root / "link").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("Creating symlinks requires extra privileges on this platform")
     resolver = SafePathResolver(root)
 
     with pytest.raises(PathSecurityError):

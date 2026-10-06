@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from urllib.parse import urlparse
 
-from musicsync.domain.ports import DownloaderPort
-from musicsync.domain.value_objects import Source
+from musicsync.domain.entities import DownloadItem
+from musicsync.domain.ports import DownloaderPort, SourceAnalysis
+from musicsync.domain.value_objects import Source, TrackId
 
-from .errors import InvalidSourceUrlError
+from .errors import InvalidSourceUrlError, UnknownTrackError
 
 
 class SourceResolver:
@@ -33,3 +34,28 @@ class SourceResolver:
         if adapter is None:
             raise InvalidSourceUrlError(f"No downloader configured for source {source}")
         return adapter
+
+
+class ResolvingDownloader(DownloaderPort):
+    """DownloaderPort that routes each URL to its adapter and remembers who owns each track."""
+
+    def __init__(self, resolver: SourceResolver, adapters: Iterable[DownloaderPort]) -> None:
+        self._resolver = resolver
+        self._adapters = tuple(adapters)
+        self._owners: dict[TrackId, DownloaderPort] = {}
+
+    def analyze(self, url: str) -> SourceAnalysis:
+        adapter = self._resolver.resolve(url)
+        analysis = adapter.analyze(url)
+        self._owners.update({track.id: adapter for track in analysis.tracks})
+        return analysis
+
+    def download(self, item: DownloadItem, destination: str) -> str:
+        adapter = self._owners.get(item.track_id)
+        if adapter is None:
+            raise UnknownTrackError(f"Track {item.track_id} was not analyzed")
+        return adapter.download(item, destination)
+
+    def cancel(self, job_id: str) -> None:
+        for adapter in self._adapters:
+            adapter.cancel(job_id)
