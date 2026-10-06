@@ -1,4 +1,4 @@
-from .downloader import DownloaderPort, SourceAnalysis
+from .downloader import DownloaderPort, SearchHit, SearchPort, SourceAnalysis
 from .filesystem import FileSystemPort
 from .media_processor import MediaInspection, MediaProcessorPort, ProcessingOptions
 from .repositories import DownloadJobRepository, MediaFileRepository, TrackRepository
@@ -12,6 +12,8 @@ __all__ = [
     "MediaInspection",
     "MediaProcessorPort",
     "ProcessingOptions",
+    "SearchHit",
+    "SearchPort",
     "SourceAnalysis",
     "StorageDevicePort",
     "TrackRepository",

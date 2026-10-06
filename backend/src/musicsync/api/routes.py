@@ -13,6 +13,7 @@ from .schemas import (
     CreateDownloadRequest,
     DownloadJobResponse,
     ErrorResponse,
+    SearchResultResponse,
     StorageDeviceResponse,
 )
 from .service import ApiService
@@ -31,6 +32,21 @@ def create_router(service: ApiService | Callable[[], ApiService]) -> APIRouter:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=ErrorResponse(code="INVALID_URL", message=str(exc)).model_dump(),
+            ) from exc
+
+    @router.get("/search", response_model=list[SearchResultResponse])
+    def search(q: str, source: str = "youtube", limit: int = 5) -> list[SearchResultResponse]:
+        try:
+            return get().search(q, source, limit)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ErrorResponse(code="VALIDATION_FAILED", message=str(exc)).model_dump(),
+            ) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=ErrorResponse(code="SEARCH_FAILED", message=str(exc)).model_dump(),
             ) from exc
 
     @router.post("/downloads", response_model=DownloadJobResponse, status_code=201)

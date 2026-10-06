@@ -34,6 +34,15 @@ class AnalysisResponse(BaseModel):
     tracks: list[TrackResponse]
 
 
+class SearchResultResponse(BaseModel):
+    title: str
+    artist: str
+    url: str
+    source: str
+    duration_seconds: float | None = None
+    album: str | None = None
+
+
 class CreateDownloadRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     destination_device_id: str = Field(min_length=1, max_length=255)

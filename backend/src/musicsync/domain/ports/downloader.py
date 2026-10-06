@@ -12,6 +12,20 @@ class SourceAnalysis:
     tracks: tuple[Track, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class SearchHit:
+    title: str
+    artist: str
+    url: str
+    source: str
+    duration_seconds: float | None = None
+    album: str | None = None
+
+
+class SearchPort(Protocol):
+    def search(self, query: str, source: str, limit: int) -> list[SearchHit]: ...
+
+
 class DownloaderPort(Protocol):
     def analyze(self, url: str) -> SourceAnalysis: ...
 

@@ -35,6 +35,12 @@ npm start   # http://localhost:4200, /api y /ws se redirigen al backend (proxy.c
 npm test -- --watch=false
 ```
 
+## Usar MusicSync desde Claude (MCP)
+
+El repo incluye `.mcp.json` en la raíz: Claude Code lo detecta al abrir el proyecto (aprueba el servidor `musicsync`). Con el backend corriendo, Claude puede buscar canciones en YouTube/Spotify y sincronizarlas con estas herramientas: `search_music`, `analyze_url`, `list_devices`, `start_sync`, `queue_songs` (lote «Artista - Título»), `job_status`, `list_jobs`, `cancel_job`.
+
+Ejemplo: «Descarga estas 10 canciones a la USB: …». Úsalo solo con contenido que tengas derecho a descargar.
+
 ## Requisitos de ejecución
 
 `ffmpeg`/`ffprobe`, `yt-dlp` y (para Spotify) `spotdl` deben estar en el `PATH`, o configurarse en `.env` (ver `.env.example`).

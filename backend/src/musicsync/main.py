@@ -25,6 +25,7 @@ from musicsync.infrastructure.database.session import (
     create_session_factory,
 )
 from musicsync.infrastructure.downloaders import (
+    MusicSearch,
     ResolvingDownloader,
     SourceResolver,
     SpotDlDownloaderAdapter,
@@ -89,7 +90,12 @@ def build_service(settings: Settings) -> ApiService:
         if job.status in INTERRUPTED:  # the process died mid-job: make it resumable
             job.pause()
             save(job)
-    service = ApiService(downloader, devices, runner=run, on_change=save, jobs=jobs)
+    searcher = MusicSearch(
+        yt_dlp_binary=settings.yt_dlp_binary, spotdl_binary=settings.spotdl_binary
+    )
+    service = ApiService(
+        downloader, devices, runner=run, on_change=save, jobs=jobs, searcher=searcher
+    )
     for job in jobs:
         if job.status is DownloadStatus.PENDING:
             service.submit(job)

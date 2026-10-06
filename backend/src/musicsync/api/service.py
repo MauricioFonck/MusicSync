@@ -2,21 +2,30 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 from musicsync.domain.entities import DownloadItem, DownloadJob, StorageDevice
-from musicsync.domain.ports import DownloaderPort, SourceAnalysis
+from musicsync.domain.ports import DownloaderPort, SearchPort, SourceAnalysis
 from musicsync.domain.value_objects import DownloadStatus, JobId, StorageDeviceId
 
 from .schemas import (
     AnalysisResponse,
     DownloadItemResponse,
     DownloadJobResponse,
+    SearchResultResponse,
     StorageDeviceResponse,
     TrackResponse,
 )
 
 DeviceProvider = Callable[[], Sequence[StorageDevice]]
 JobRunner = Callable[[DownloadJob], None]
+
+ACTIVE = {
+    DownloadStatus.PENDING,
+    DownloadStatus.ANALYZING,
+    DownloadStatus.DOWNLOADING,
+    DownloadStatus.PROCESSING,
+}
 
 RUNNABLE = {
     DownloadStatus.PENDING,
@@ -37,8 +46,11 @@ class ApiService:
         runner: JobRunner | None = None,
         on_change: Callable[[DownloadJob], None] | None = None,
         jobs: Iterable[DownloadJob] = (),
+        searcher: SearchPort | None = None,
     ) -> None:
         self.downloader = downloader
+        self._searcher = searcher
+        self._lock = Lock()
         self._devices = devices if callable(devices) else (lambda: tuple(devices))
         self._runner = runner
         self._on_change = on_change or (lambda job: None)
@@ -79,6 +91,21 @@ class ApiService:
             ],
         )
 
+    def search(self, query: str, source: str, limit: int) -> list[SearchResultResponse]:
+        if self._searcher is None:
+            raise ValueError("Search is not configured")
+        return [
+            SearchResultResponse(
+                title=hit.title,
+                artist=hit.artist,
+                url=hit.url,
+                source=hit.source,
+                duration_seconds=hit.duration_seconds,
+                album=hit.album,
+            )
+            for hit in self._searcher.search(query, source, limit)
+        ]
+
     def create_job(
         self, url: str, device_id: str, track_ids: list[str] | None
     ) -> DownloadJobResponse:
@@ -90,12 +117,23 @@ class ApiService:
         ]
         if not tracks:
             raise ValueError("No tracks selected for download")
-        job = DownloadJob(JobId.new(), url, StorageDeviceId(device_id))
-        job.items.extend(
-            DownloadItem(f"{job.id}-{index}", job.id, track.id)
-            for index, track in enumerate(tracks)
-        )
-        self.jobs[str(job.id)] = job
+        wanted = {track.id for track in tracks}
+        with self._lock:
+            # Same url + device + tracks already queued or running: reuse it, never enqueue twice.
+            for existing in self.jobs.values():
+                if (
+                    existing.status in ACTIVE
+                    and existing.source_url == url
+                    and str(existing.destination_device_id) == device_id
+                    and {item.track_id for item in existing.items} == wanted
+                ):
+                    return self.to_job_response(existing)
+            job = DownloadJob(JobId.new(), url, StorageDeviceId(device_id))
+            job.items.extend(
+                DownloadItem(f"{job.id}-{index}", job.id, track.id)
+                for index, track in enumerate(tracks)
+            )
+            self.jobs[str(job.id)] = job
         self._on_change(job)
         self.submit(job)
         return self.to_job_response(job)
@@ -119,7 +157,7 @@ class ApiService:
             return None
         if self._runner is None:
             job.start()
-        elif job.status not in RUNNABLE:
+        elif job.status not in RUNNABLE or job.status in ACTIVE:
             raise ValueError(f"Cannot resume a job in {job.status} status")
         else:
             self.submit(job)

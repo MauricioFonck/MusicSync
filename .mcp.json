@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "musicsync": {
+      "command": "uv",
+      "args": ["run", "--directory", "backend", "python", "-m", "musicsync.mcp_server"],
+      "env": { "MUSICSYNC_API": "http://127.0.0.1:8000" }
+    }
+  }
+}

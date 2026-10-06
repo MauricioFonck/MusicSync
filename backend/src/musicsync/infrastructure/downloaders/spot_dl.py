@@ -25,9 +25,20 @@ class SpotDlDownloaderAdapter(YtDlpDownloaderAdapter):
         parsed = urlparse(url.strip())
         if parsed.scheme not in {"http", "https"} or parsed.hostname not in SPOTIFY_HOSTS:
             raise InvalidSourceUrlError("spotDL requires an absolute Spotify URL")
+        songs = self.save(url)
+        tracks = self._tracks_from_payload(
+            {"entries": [self._entry(song) for song in songs]}, url
+        )
+        if not tracks:
+            raise DownloaderToolError("spotDL returned no tracks")
+        self._tracks.update({track.id: track for track in tracks})
+        return SourceAnalysis(source=url, tracks=tuple(tracks))
+
+    def save(self, target: str) -> list[dict[str, Any]]:
+        """Resolve a Spotify URL or free-text query to spotDL song records."""
         with tempfile.TemporaryDirectory(prefix="musicsync-spotdl-") as directory:
             save_file = Path(directory) / "analysis.spotdl"
-            result = self._run([self._binary, "save", url, "--save-file", str(save_file)])
+            result = self._run([self._binary, "save", target, "--save-file", str(save_file)])
             if result.returncode != 0:
                 detail = (result.stderr or "").strip() or "unknown spotDL error"
                 raise DownloaderToolError(f"spotDL analysis failed: {detail}")
@@ -37,13 +48,7 @@ class SpotDlDownloaderAdapter(YtDlpDownloaderAdapter):
                 raise DownloaderToolError("spotDL returned invalid song data") from exc
         if not isinstance(songs, list):
             raise DownloaderToolError("spotDL returned invalid song data")
-        tracks = self._tracks_from_payload(
-            {"entries": [self._entry(song) for song in songs if isinstance(song, dict)]}, url
-        )
-        if not tracks:
-            raise DownloaderToolError("spotDL returned no tracks")
-        self._tracks.update({track.id: track for track in tracks})
-        return SourceAnalysis(source=url, tracks=tuple(tracks))
+        return [song for song in songs if isinstance(song, dict)]
 
     def download(self, item: DownloadItem, destination: str) -> str:
         if str(item.job_id) in self._cancelled_jobs:
