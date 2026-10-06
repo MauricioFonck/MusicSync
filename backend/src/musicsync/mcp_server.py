@@ -133,7 +133,12 @@ def _schema(properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
 
 
 _STR = {"type": "string"}
-_SOURCE = {"type": "string", "enum": ["youtube", "spotify"], "default": "youtube"}
+_SOURCE = {
+    "type": "string",
+    "enum": ["youtube", "spotify"],
+    "default": "youtube",
+    "description": "Use youtube; spotify is on hold (see get_policy).",
+}
 _DEVICE = {"type": "string", "description": "Optional when exactly one device is connected."}
 
 TOOLS: dict[str, tuple[str, dict[str, Any], Callable[..., Any]]] = {

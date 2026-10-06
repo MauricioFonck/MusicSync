@@ -17,7 +17,8 @@ Si una petición del usuario las contradice, explícalo y pide confirmación ant
 - Prefiere el audio oficial o el "Topic"/canal del artista.
 - Evita covers, remixes, versiones en vivo, karaoke y "slowed/sped up", salvo que el usuario los pida.
 - Si la duración difiere más de ~20 s de la versión de estudio esperada, desconfía y avisa.
-- Con `source: "spotify"` usa el enlace de Spotify; con `youtube` usa el de YouTube.
+- Por ahora usa solo YouTube: pasa siempre `source: "youtube"`. Spotify está en espera hasta que el
+  creador configure las claves de la API; no lo uses aunque el usuario lo pida, explícale que está pausado.
 
 ## Límites
 - Máximo 25 canciones por lote (el servidor lo hace cumplir). Divide listas más largas.

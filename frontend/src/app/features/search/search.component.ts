@@ -31,20 +31,17 @@ const ACTIVE = ['PENDING', 'ANALYZING', 'DOWNLOADING', 'PROCESSING'];
           placeholder="Artist - Song"
           aria-label="Search query"
         />
-        <select [(ngModel)]="source" aria-label="Source">
-          <option value="youtube">YouTube</option>
-          <option value="spotify">Spotify</option>
-        </select>
+        <!-- Spotify is on hold until API keys are configured; the slow spotDL fallback stays hidden. -->
+        @if (spotifyApi()) {
+          <select [(ngModel)]="source" aria-label="Source">
+            <option value="youtube">YouTube</option>
+            <option value="spotify">Spotify</option>
+          </select>
+        }
         <button class="button primary" (click)="search()" [disabled]="loading() || !query.trim()">
           {{ loading() ? 'Searching…' : 'Search' }}
         </button>
       </div>
-      @if (source === 'spotify' && !spotifyApi()) {
-        <p class="muted hint">
-          Without Spotify API keys this returns only the best match and takes about 30 seconds.
-          Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to .env for fast results.
-        </p>
-      }
       <div class="device-row">
         <label for="device">Send to</label>
         <select id="device" [(ngModel)]="device">
@@ -104,7 +101,6 @@ const ACTIVE = ['PENDING', 'ANALYZING', 'DOWNLOADING', 'PROCESSING'];
       .search-row { display: flex; gap: 0.75rem; }
       .search-row input { flex: 1; }
       .search-row select, .device-row select { border: 1px solid var(--line); border-radius: 9px; padding: 0.7rem; background: var(--surface); }
-      .hint { margin: 0.75rem 0 0; font-size: 0.85rem; }
       .device-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
       .panel-title { display: flex; justify-content: space-between; align-items: center; }
       .pill { font-size: 0.75rem; padding: 0.35rem 0.65rem; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
