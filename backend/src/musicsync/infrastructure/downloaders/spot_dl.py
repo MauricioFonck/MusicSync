@@ -39,7 +39,10 @@ class SpotDlDownloaderAdapter(YtDlpDownloaderAdapter):
             raise ValueError("Search query cannot start with '-'")
         with tempfile.TemporaryDirectory(prefix="musicsync-spotdl-") as directory:
             save_file = Path(directory) / "analysis.spotdl"
-            result = self._run([self._binary, "save", target, "--save-file", str(save_file)])
+            # Bare --lyrics selects no providers: lyrics lookups only slow metadata queries down.
+            result = self._run(
+                [self._binary, "save", target, "--save-file", str(save_file), "--lyrics"]
+            )
             if result.returncode != 0:
                 detail = (result.stderr or "").strip() or "unknown spotDL error"
                 raise DownloaderToolError(f"spotDL analysis failed: {detail}")

@@ -20,6 +20,7 @@ class SearchHit:
     source: str
     duration_seconds: float | None = None
     album: str | None = None
+    thumbnail_url: str | None = None
 
 
 class SearchPort(Protocol):

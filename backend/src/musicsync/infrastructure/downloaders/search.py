@@ -9,7 +9,7 @@ from .errors import DownloaderToolError
 from .spot_dl import SpotDlDownloaderAdapter
 from .yt_dlp import CommandRunner, YtDlpDownloaderAdapter
 
-MAX_RESULTS = 10
+MAX_RESULTS = 20
 
 
 class MusicSearch:
@@ -60,6 +60,7 @@ class MusicSearch:
                 url=f"https://www.youtube.com/watch?v={entry['id']}",
                 source="youtube",
                 duration_seconds=entry.get("duration"),
+                thumbnail_url=f"https://i.ytimg.com/vi/{entry['id']}/mqdefault.jpg",
             )
             for entry in entries
             if entry.get("id") and entry.get("title")
@@ -74,6 +75,7 @@ class MusicSearch:
                 source="spotify",
                 duration_seconds=song.get("duration"),
                 album=song.get("album_name"),
+                thumbnail_url=song.get("cover_url"),
             )
             for song in self._spotify.save(query)[:limit]
             if song.get("url") and song.get("name")

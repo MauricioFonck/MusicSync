@@ -102,6 +102,7 @@ class ApiService:
                 source=hit.source,
                 duration_seconds=hit.duration_seconds,
                 album=hit.album,
+                thumbnail_url=hit.thumbnail_url,
             )
             for hit in self._searcher.search(query, source, limit)
         ]

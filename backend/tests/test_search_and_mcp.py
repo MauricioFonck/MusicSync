@@ -75,6 +75,7 @@ def test_music_search_parses_youtube_and_spotify_cli_output() -> None:
 
     youtube = search.search("daft punk", "youtube", 2)
     assert youtube[0].url == "https://www.youtube.com/watch?v=abc"
+    assert youtube[0].thumbnail_url == "https://i.ytimg.com/vi/abc/mqdefault.jpg"
     assert search.search("Artist - Song", "spotify", 5)[0].source == "spotify"
     with pytest.raises(ValueError):
         search.search("x", "other", 1)

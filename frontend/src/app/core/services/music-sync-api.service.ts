@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -11,6 +11,16 @@ export interface Track {
   duration_seconds?: number;
   release_date?: string;
   original_url?: string;
+}
+
+export interface SearchResult {
+  title: string;
+  artist: string;
+  url: string;
+  source: 'youtube' | 'spotify';
+  duration_seconds?: number;
+  album?: string;
+  thumbnail_url?: string;
 }
 
 export interface Analysis { source: string; tracks: Track[]; }
@@ -51,7 +61,7 @@ export class MusicSyncApiService {
     return this.http.post<Analysis>(`${this.baseUrl}/downloads/analyze`, { url });
   }
 
-  createDownload(url: string, destinationDeviceId: string, trackIds: string[]): Observable<DownloadJob> {
+  createDownload(url: string, destinationDeviceId: string, trackIds: string[] | null): Observable<DownloadJob> {
     return this.http.post<DownloadJob>(`${this.baseUrl}/downloads`, {
       url, destination_device_id: destinationDeviceId, track_ids: trackIds
     });
@@ -74,6 +84,11 @@ export class MusicSyncApiService {
       socket.onclose = () => subscriber.complete();
       return () => socket.close();
     });
+  }
+
+  search(q: string, source: 'youtube' | 'spotify', limit = 15): Observable<SearchResult[]> {
+    const params = new HttpParams().set('q', q).set('source', source).set('limit', limit);
+    return this.http.get<SearchResult[]>(`${this.baseUrl}/search`, { params });
   }
 
   history(): Observable<DownloadJob[]> { return this.http.get<DownloadJob[]>(`${this.baseUrl}/downloads/history`); }
